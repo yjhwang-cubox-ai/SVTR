@@ -55,7 +55,7 @@ def build_output_control_points(num_control_points, margins):
     ctrl_pts_top = np.stack([ctrl_pts_x, ctrl_pts_y_top], axis=1)
     ctrl_pts_bottom = np.stack([ctrl_pts_x, ctrl_pts_y_bottom], axis=1)
     output_ctrl_pts_arr = np.concatenate([ctrl_pts_top, ctrl_pts_bottom], axis=0)
-    output_ctrl_pts = torch.to_tensor(output_ctrl_pts_arr)
+    output_ctrl_pts = torch.tensor(output_ctrl_pts_arr)
     return output_ctrl_pts
 
 class TPSSpatialTransformer(nn.Module):

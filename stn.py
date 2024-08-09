@@ -2,7 +2,7 @@ import torch
 from torch import nn
 import numpy as np
 import math
-from .tps_spatial_transformer import TPSSpatialTransformer
+from tps_spatial_transformer import TPSSpatialTransformer
 
 def conv3x3_block(in_channels, out_channels, stride=1):
     n = 3 * 3 * out_channels
@@ -46,9 +46,13 @@ class STN(nn.Module):
         ) # 1*2
         self.stn_fc1 = nn.Sequential(
             nn.Linear(2 * 256, 512,),
-            nn.BatchNorm2d(512),
+            nn.BatchNorm1d(512),
             nn.ReLU(),
         )
+        # 가중치 초기화
+        nn.init.normal_(self.stn_fc1[0].weight, mean=0.0, std=0.001)
+        nn.init.constant_(self.stn_fc1[0].bias, 0)
+        
         fc2_bias = self.init_stn()
         self.stn_fc2 = nn.Linear(
             512,
@@ -92,17 +96,16 @@ class STN(nn.Module):
 class STN_ON(nn.Module):
     def __init__(
             self,
-            in_channels,
-            tps_inputsize,
-            tps_outputsize,
-            num_control,
-            num_control_points,
-            tps_margins,
-            stn_activation,
+            in_channels = 3,
+            tps_inputsize = [32, 64],
+            tps_outputsize = [32, 100],
+            num_control_points = 20,
+            tps_margins = [0.05, 0.05],
+            stn_activation = "none",
     ):
         super(STN_ON, self).__init__()
         self.tps = TPSSpatialTransformer(
-            output_image_size=tuple(tps_inputsize),
+            output_image_size=tuple(tps_outputsize),
             num_control_points=num_control_points,
             margins=tuple(tps_margins),
         )        
