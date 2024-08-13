@@ -2,7 +2,6 @@ import torch
 from torch import nn
 import numpy as np
 
-
 class ConvBNLayer(nn.Module):
     def __init__(
         self,
@@ -32,7 +31,7 @@ class ConvBNLayer(nn.Module):
         out = self.conv(inputs)
         out = self.norm(out)
         out = self.act(out)
-        return out    
+        return out
 
 class PatchEmbed(nn.Module):
     def __init__(
@@ -51,14 +50,72 @@ class PatchEmbed(nn.Module):
         self.embed_dim = embed_dim
         self.norm = None
         if mode == "pope":
-            self.proj = nn.Sequential(
-                ConvBNLayer,)
-    
-    
-    
-    
-    
-    
+            if sub_num == 2:
+                self.proj = nn.Sequential(
+                    ConvBNLayer(
+                        in_channels=in_channels,
+                        out_channels=embed_dim // 2,
+                        kernel_size=3,
+                        stride=2,
+                        padding=1,
+                        act=nn.GELU,
+                        bias_attr=None
+                    ),
+                    ConvBNLayer(
+                        in_channels=embed_dim // 2,
+                        out_channels=embed_dim,
+                        kernel_size=3,
+                        stride=2,
+                        padding=1,
+                        act=nn.GELU,
+                        bias_attr=None
+                    ),
+                )
+            if sub_num == 3:
+                self.proj = nn.Sequential(
+                    ConvBNLayer(
+                        in_channels=in_channels,
+                        out_channels=embed_dim // 4,
+                        kernel_size=3,
+                        stride=2,
+                        padding=1,
+                        act=nn.GELU,
+                        bias_attr=None
+                    ),
+                    ConvBNLayer(
+                        in_channels=embed_dim // 4,
+                        out_channels=embed_dim // 2,
+                        kernel_size=3,
+                        stride=2,
+                        padding=1,
+                        act=nn.GELU,
+                        bias_attr=None
+                    ),
+                    ConvBNLayer(
+                        in_channels=embed_dim // 2,
+                        out_channels=embed_dim,
+                        kernel_size=3,
+                        stride=2,
+                        padding=1,
+                        act=nn.GELU,
+                        bias_attr=None
+                    ),
+                )
+        elif mode == "linear":
+            self.proj = nn.Conv2d(
+                1, embed_dim, kernel_size=patch_size, stride=patch_size
+            )
+            self.num_patches = (
+                img_size[0] // patch_size[0] * img_size[1] // patch_size[1]
+            )
+        
+    def forward(self, x):
+        B, C, H, W = x.shape
+        assert (
+            H == self.img_size[0] and W == self.img_size[1]
+        ), f"Input image size ({H}*{W}) doesn't match model ({self.img_size[0]}*{self.img_size[1]})."
+        x = self.proj(x).flatten(2).transpose((0,2,1))
+        return x
     
 
 class SVTRNet(nn.Module):
