@@ -139,7 +139,7 @@ class PatchEmbed(nn.Module):
         assert (
             H == self.img_size[0] and W == self.img_size[1]
         ), f"Input image size ({H}*{W}) doesn't match model ({self.img_size[0]}*{self.img_size[1]})."
-        x = self.proj(x).flatten(2).transpose((0,2,1))
+        x = self.proj(x).flatten(2).transpose(1,2)
         return x
 
 class Attention(nn.Module):
@@ -243,14 +243,14 @@ class Mlp(nn.Module):
         in_features,
         hidden_features=None,
         out_features=None,
-        act_Layer=nn.GELU,
+        act_layer=nn.GELU,
         drop=0.0,
     ):
         super(Mlp, self).__init__()
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
         self.fc1 = nn.Linear(in_features, hidden_features)
-        self.act = act_Layer()
+        self.act = act_layer()
         self.fc2 = nn.Linear(hidden_features, out_features)
         self.drop = nn.Dropout(drop)
     
@@ -276,7 +276,7 @@ class Block(nn.Module):
         drop=0.0,
         attn_drop=0.0,
         drop_path=0.0,
-        act_Layer=nn.GELU,        
+        act_layer=nn.GELU,        
         norm_layer="nn.LayerNorm",
         epsilon=1e-6,
         prenorm=True,
@@ -312,7 +312,7 @@ class Block(nn.Module):
         self.mlp = Mlp(
             in_features=dim,
             hidden_features=mlp_hidden_dim,
-            act_Layer=act_Layer,
+            act_layer=act_layer,
             drop=drop,
         )
         self.prenorm = prenorm
@@ -382,7 +382,7 @@ class SVTRNet(nn.Module):
         img_size=[32, 100],
         in_channels=3,
         embed_dim=[64, 128, 256],
-        depth=[3,6,9],
+        depth=[3,6,3],
         num_heads=[2,4,8],
         mixer=["Local"] * 6 + ["Global"] * 6, # Local atten, Global atten, Conv
         local_mixer=[[7, 11], [7, 11], [7, 11]],
@@ -412,16 +412,16 @@ class SVTRNet(nn.Module):
         self.embed_dim = embed_dim
         self.out_channels = out_channels
         self.prenorm = prenorm
-        parch_merging = (
+        patch_merging = (
             None if patch_merging != "Conv" and patch_merging != "Pool" else patch_merging
         )
-        self.path_embed = PatchEmbed(
+        self.patch_embed = PatchEmbed(
             img_size=img_size,
             in_channels=in_channels,
             embed_dim=embed_dim[0],
             sub_num=sub_num,
         )
-        num_patches = self.path_embed.num_patches
+        num_patches = self.patch_embed.num_patches
         self.HW = [img_size[0] // (2**sub_num), img_size[1] // (2**sub_num)]
         self.pos_embed = nn.Parameter(torch.zeros(1, num_patches, embed_dim[0]))
         self.register_parameter("pos_embed", self.pos_embed)
@@ -429,7 +429,7 @@ class SVTRNet(nn.Module):
         Block_unit = eval(block_unit)
         
         dpr = np.linspace(0, drop_path_rate, sum(depth))
-        self.block1 = nn.ModuleList(
+        self.blocks1 = nn.ModuleList(
             [
                 Block_unit(
                     dim=embed_dim[0],
@@ -441,7 +441,7 @@ class SVTRNet(nn.Module):
                     qkv_bias=qkv_bias,
                     qk_scale=qk_scale,
                     drop=drop_rate,
-                    act_Layer=eval(act),
+                    act_layer=eval(act),
                     attn_drop=attn_drop_rate,
                     drop_path=dpr[0 : depth[0]][i],
                     norm_layer=norm_layer,
