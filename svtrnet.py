@@ -176,6 +176,82 @@ class Attention(nn.Module):
         x = self.proj_drop(x)
         return x
 
+class ConvMixer(nn.Module):
+    def __init__(
+        self,
+        dim,
+        num_heads=8,
+        HW=[8, 25],
+        local_k=[3, 3],
+    ):
+        super(ConvMixer, self).__init__()
+        self.HW = HW
+        self.dim = dim
+        self.local_mixer = nn.Conv2d(
+            dim,
+            dim,
+            kernel_size=local_k,
+            stride=1,
+            padding=[local_k[0] // 2, local_k[1] // 2],
+            groups=num_heads,
+        )
+        nn.init.kaiming_normal_(self.local_mixer.weight, mode="fan_out", nonlinearity="relu")
+    
+    def forward(self, x):
+        h = self.HW[0]
+        w = self.HW[1]
+        x = x.permute(0,1,2).reshape(-1, self.dim, h, w)
+        x = self.local_mixer(x)
+        x = x.flatten(2).transpose(0, 2, 1)
+        return x
+
+def drop_path(x, drop_prob=0.0, training=False):
+    """Drop paths (Stochastic Depth) per sample (when applied in main path of residual blocks).
+    the original name is misleading as 'Drop Connect' is a different form of dropout in a separate paper...
+    See discussion: https://github.com/tensorflow/tpu/issues/494#issuecomment-532968956 ...
+    """
+    if drop_prob == 0.0 or not training:
+        return x
+    keep_prob = 1 - drop_prob
+    shape = (x.shape[0],) + (1,) * (x.ndim - 1)
+    random_tensor = keep_prob + torch.rand(shape, dtype=x.dtype, device=x.device)
+    random_tensor.floor_()  # binarize
+    output = x.div(keep_prob) * random_tensor
+    return output
+
+class DropPath(nn.Module):
+    def __init__(self, drop_prob=None):
+        super(DropPath, self).__init__()
+        self.drop_prob = drop_prob
+    
+    def forward(self, x):
+        return drop_path(x, self.drop_prob, self.training)
+
+class Mlp(nn.Module):
+    def __init__(
+        self,
+        in_features,
+        hidden_features=None,
+        out_features=None,
+        act_Layer=nn.GELU,
+        drop=0.0,
+    ):
+        super(Mlp, self).__init__()
+        out_features = out_features or in_features
+        hidden_features = hidden_features or in_features
+        self.fc1 = nn.Linear(in_features, hidden_features)
+        self.act = act_Layer()
+        self.fc2 = nn.Linear(hidden_features, out_features)
+        self.drop = nn.Dropout(drop)
+    
+    def forward(self, x):
+        x = self.fc1(x)
+        x = self.act(x)
+        x = self.drop(x)
+        x = self.fc2(x)
+        x = self.drop(x)
+        return x
+        
 class Block(nn.Module):
     def __init__(
         self,
