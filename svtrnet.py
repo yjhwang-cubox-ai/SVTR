@@ -560,7 +560,7 @@ class SVTRNet(nn.Module):
         if self.patch_merging is not None:
             x = self.sub_sample1(
                 x.transpose(1, 2).reshape(
-                    x.size(0), self.embed_dim[0], self.HW[0], self.HW[1]
+                    -1, self.embed_dim[0], self.HW[0], self.HW[1]
                 )
             )
         for blk in self.blocks2:
@@ -568,7 +568,7 @@ class SVTRNet(nn.Module):
         if self.patch_merging is not None:
             x = self.sub_sample2(
                 x.transpose(1, 2).reshape(
-                    x.size(0), self.embed_dim[1], self.HW[0] // 2, self.HW[1]
+                    -1, self.embed_dim[1], self.HW[0] // 2, self.HW[1]
                 )
             )
         for blk in self.blocks3:
@@ -588,7 +588,8 @@ class SVTRNet(nn.Module):
             else:
                 h = self.HW[0]
             x = self.avg_pool(
-                x.transpose(1, 2).reshape(x.size(0), self.embed_dim[2], h, self.HW[1])
+                # x.transpose(1, 2).reshape(-1, self.embed_dim[2], h, self.HW[1])
+                x.transpose(1, 2).view(-1, self.embed_dim[2], h, self.HW[1])
             )
             x = self.last_conv(x)
             x = self.hardswish(x)
