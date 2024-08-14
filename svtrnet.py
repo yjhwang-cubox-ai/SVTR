@@ -3,6 +3,30 @@ from torch import nn
 import torch.nn .functional as F
 import numpy as np
 
+def trunc_normal_(tensor, mean=0., std=0.02):
+    with torch.no_grad():
+        size = tensor.shape
+        tmp = tensor.new_empty(size + (4,)).normal_()
+        valid = (tmp < 2) & (tmp > -2)
+        ind = valid.max(-1, keepdim=True)[1]
+        tensor.data.copy_(tmp.gather(-1, ind).squeeze(-1))
+        tensor.data.mul_(std).add_(mean)
+    return tensor
+
+def drop_path(x, drop_prob=0.0, training=False):
+    """Drop paths (Stochastic Depth) per sample (when applied in main path of residual blocks).
+    the original name is misleading as 'Drop Connect' is a different form of dropout in a separate paper...
+    See discussion: https://github.com/tensorflow/tpu/issues/494#issuecomment-532968956 ...
+    """
+    if drop_prob == 0.0 or not training:
+        return x
+    keep_prob = 1 - drop_prob
+    shape = (x.shape[0],) + (1,) * (x.ndim - 1)
+    random_tensor = keep_prob + torch.rand(shape, dtype=x.dtype, device=x.device)
+    random_tensor.floor_()  # binarize
+    output = x.div(keep_prob) * random_tensor
+    return output
+
 class ConvBNLayer(nn.Module):
     def __init__(
         self,
@@ -205,20 +229,6 @@ class ConvMixer(nn.Module):
         x = x.flatten(2).transpose(0, 2, 1)
         return x
 
-def drop_path(x, drop_prob=0.0, training=False):
-    """Drop paths (Stochastic Depth) per sample (when applied in main path of residual blocks).
-    the original name is misleading as 'Drop Connect' is a different form of dropout in a separate paper...
-    See discussion: https://github.com/tensorflow/tpu/issues/494#issuecomment-532968956 ...
-    """
-    if drop_prob == 0.0 or not training:
-        return x
-    keep_prob = 1 - drop_prob
-    shape = (x.shape[0],) + (1,) * (x.ndim - 1)
-    random_tensor = keep_prob + torch.rand(shape, dtype=x.dtype, device=x.device)
-    random_tensor.floor_()  # binarize
-    output = x.div(keep_prob) * random_tensor
-    return output
-
 class DropPath(nn.Module):
     def __init__(self, drop_prob=None):
         super(DropPath, self).__init__()
@@ -315,6 +325,55 @@ class Block(nn.Module):
             x = x + self.drop_path(self.mixer(self.norm1(x)))
             x = x + self.drop_path(self.mlp(self.norm2(x)))
         return x
+
+class SubSample(nn.Module):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        types="Pool",
+        stride=[2, 1],
+        sub_norm="nn.LayerNorm",
+        act=None,
+    ):
+        super(SubSample, self).__init__()
+        self.types = types
+        if types == "Pool":
+            self.avgpool = nn.AvgPool2d(
+                kernel_size=(3, 5), stride=stride, padding=(1, 2)
+            )
+            self.maxpool = nn.MaxPool2d(
+                kernel_size=(3, 5), stride=stride, padding=(1, 2)
+            )
+            self.proj = nn.Linear(in_channels, out_channels)
+        else:
+            self.conv = nn.Conv2d(
+                in_channels,
+                out_channels,
+                kernel_size=3,
+                stride=stride,
+                padding=1
+            )
+        self.norm = eval(sub_norm)(out_channels)
+        if act is not None:
+            self.act = act()
+        else:
+            self.act = None
+
+    def forward(self, x):
+        if self.types == "Pool":
+            x1 = self.avgpool(x)
+            x2 = self.maxpool(x)
+            x = (x1 + x2) * 0.5
+            out = self.proj(x.flatten(2).transpose(1, 2))
+        else:
+            x = self.conv(x)
+            out = x.flatten(2).transpose(1, 2)
+        out = self.norm(out)
+        if self.act is not None:
+            out = self.act(out)
+
+        return out
     
 
 class SVTRNet(nn.Module):
@@ -393,7 +452,7 @@ class SVTRNet(nn.Module):
             ]
         )
         if patch_merging is not None:
-            self.sub_sample1 = Subsample(
+            self.sub_sample1 = SubSample(
                 embed_dim[0],
                 embed_dim[1],
                 sub_norm=sub_norm,
@@ -403,3 +462,137 @@ class SVTRNet(nn.Module):
             HW = [self.HW[0] // 2, self.HW[1]]
         else:
             HW = self.HW
+        self.patch_merging = patch_merging
+        self.blocks2 = nn.ModuleList(
+            [
+                Block_unit(
+                    dim=embed_dim[1],
+                    num_heads=num_heads[1],
+                    mixer=mixer[depth[0] : depth[0] + depth[1]][i],
+                    HW=HW,
+                    local_mixer=local_mixer[1],
+                    mlp_ratio=mlp_ratio,
+                    qkv_bias=qkv_bias,
+                    qk_scale=qk_scale,
+                    drop=drop_rate,
+                    act_layer=eval(act),
+                    attn_drop=attn_drop_rate,
+                    drop_path=dpr[depth[0] : depth[0] + depth[1]][i],
+                    norm_layer=norm_layer,
+                    epsilon=epsilon,
+                    prenorm=prenorm,
+                )
+                for i in range(depth[1])
+            ]
+        )
+        if patch_merging is not None:
+            self.sub_sample2 = SubSample(
+                embed_dim[1],
+                embed_dim[2],
+                sub_norm=sub_norm,
+                stride=[2, 1],
+                types=patch_merging,
+            )
+            HW = [self.HW[0] // 4, self.HW[1]]
+        else:
+            HW = self.HW
+        self.blocks3 = nn.ModuleList(
+            [
+                Block_unit(
+                    dim=embed_dim[2],
+                    num_heads=num_heads[2],
+                    mixer=mixer[depth[0] + depth[1] :][i],
+                    HW=HW,
+                    local_mixer=local_mixer[2],
+                    mlp_ratio=mlp_ratio,
+                    qkv_bias=qkv_bias,
+                    qk_scale=qk_scale,
+                    drop=drop_rate,
+                    act_layer=eval(act),
+                    attn_drop=attn_drop_rate,
+                    drop_path=dpr[depth[0] + depth[1] :][i],
+                    norm_layer=norm_layer,
+                    epsilon=epsilon,
+                    prenorm=prenorm,
+                )
+                for i in range(depth[2])
+            ]
+        )
+        self.last_stage = last_stage
+        if last_stage:
+            self.avg_pool = nn.AdaptiveAvgPool2d((1, out_char_num))
+            self.last_conv = nn.Conv2d(
+                in_channels=embed_dim[2],
+                out_channels=self.out_channels,
+                kernel_size=1,
+                stride=1,
+                padding=0,
+                bias=False,
+            )
+            self.hardswish = nn.Hardswish()
+            self.dropout = nn.Dropout(p=last_drop)
+        if not prenorm:
+            self.norm = eval(norm_layer)(embed_dim[-1], eps=epsilon)
+        self.use_lenhead = use_lenhead
+        if use_lenhead:
+            self.len_conv = nn.Linear(embed_dim[2], self.out_channels)
+            self.hardswish_len = nn.Hardswish()
+            self.dropout_len = nn.Dropout(p=last_drop)
+
+        trunc_normal_(self.pos_embed)
+        self.apply(self._init_weights)
+    
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            trunc_normal_(m.weight)
+            if m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, nn.LayerNorm):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1)
+    
+    def forward_features(self, x):
+        x = self.patch_embed(x)
+        x = x + self.pos_embed
+        x = self.pos_drop(x)
+        for blk in self.blocks1:
+            x = blk(x)
+        if self.patch_merging is not None:
+            x = self.sub_sample1(
+                x.transpose(1, 2).reshape(
+                    x.size(0), self.embed_dim[0], self.HW[0], self.HW[1]
+                )
+            )
+        for blk in self.blocks2:
+            x = blk(x)
+        if self.patch_merging is not None:
+            x = self.sub_sample2(
+                x.transpose(1, 2).reshape(
+                    x.size(0), self.embed_dim[1], self.HW[0] // 2, self.HW[1]
+                )
+            )
+        for blk in self.blocks3:
+            x = blk(x)
+        if not self.prenorm:
+            x = self.norm(x)
+        return x
+
+    def forward(self, x):
+        x = self.forward_features(x)
+        if self.use_lenhead:
+            len_x = self.len_conv(x.mean(1))
+            len_x = self.dropout_len(self.hardswish_len(len_x))
+        if self.last_stage:
+            if self.patch_merging is not None:
+                h = self.HW[0] // 4
+            else:
+                h = self.HW[0]
+            x = self.avg_pool(
+                x.transpose(1, 2).reshape(x.size(0), self.embed_dim[2], h, self.HW[1])
+            )
+            x = self.last_conv(x)
+            x = self.hardswish(x)
+            x = self.dropout(x)
+        if self.use_lenhead:
+            return x, len_x
+        return x
