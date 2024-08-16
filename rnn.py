@@ -31,7 +31,7 @@ class Im2Seq(nn.Module):
         x = x.transpose(1, 2)  # (NTC)(batch, width, channels)
         return x
 
-class EncoderWithFC(nn.Layer):
+class EncoderWithFC(nn.Module):
     def __init__(self, in_channels, hidden_size):
         super(EncoderWithFC, self).__init__()
         self.out_channels = hidden_size
@@ -39,10 +39,10 @@ class EncoderWithFC(nn.Layer):
         self.fc = nn.Linear(
             in_channels,
             hidden_size,
-            weight_attr=weight_attr,
-            bias_attr=bias_attr,
-            name="reduce_encoder_fea",
         )
+        # weight and bias initialization
+        self.fc.weight.data = weight_attr
+        self.fc.bias.data = bias_attr
 
     def forward(self, x):
         x = self.fc(x)
