@@ -398,7 +398,7 @@ class SVTRNet(nn.Module):
         sub_norm="nn.LayerNorm",
         epsilon=1e-6,
         out_channels=192,
-        out_char_num=25,
+        out_char_num=25,        # 추후 dicttionary size로 변경되도록 수정
         block_unit="Block",
         act="nn.GELU",
         last_stage=True,
@@ -589,7 +589,9 @@ class SVTRNet(nn.Module):
                 h = self.HW[0]
             x = self.avg_pool(
                 # x.transpose(1, 2).reshape(-1, self.embed_dim[2], h, self.HW[1])
-                x.transpose(1, 2).view(-1, self.embed_dim[2], h, self.HW[1])
+                # x.transpose(1, 2).view(-1, self.embed_dim[2], h, self.HW[1])
+                x.permute(0, 2, 1).reshape(
+                    [-1, self.embed_dim[2], h, self.HW[1]])
             )
             x = self.last_conv(x)
             x = self.hardswish(x)
