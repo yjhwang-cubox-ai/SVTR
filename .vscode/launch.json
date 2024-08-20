@@ -10,6 +10,13 @@
             "request": "launch",
             "program": "main.py",
             "console": "integratedTerminal"
+        },
+        {
+            "name": "DataLoader",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "dataset.py",
+            "console": "integratedTerminal"
         }
     ]
 }
