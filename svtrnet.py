@@ -191,7 +191,7 @@ class Attention(nn.Module):
         
         attn = torch.matmul(q, k.transpose(-2, -1))
         if self.mixer == "Local":
-            attn += self.mask
+            attn += self.mask.to(torch.device(attn.device))
         attn = F.softmax(attn, dim=-1)
         attn = self.attn_drop(attn)
         
