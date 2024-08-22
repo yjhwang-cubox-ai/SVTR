@@ -37,13 +37,6 @@ class SVTR(nn.Module):
         x = self.head(x)
         return x
 
-def collate_fn(batch):
-    return {
-        'image':torch.stack([torch.tensor(x['image']) for x in batch]),
-        'label':torch.stack([torch.tensor(x['label']) for x in batch]),
-        'length':torch.stack([torch.tensor(x['length'], dtype=torch.int64) for x in batch])
-    }
-
 def main():
     
     model = SVTR()
@@ -63,8 +56,6 @@ def main():
         transforms.ToTensor(),
     ])
     dataset = TNGODataset(json_path=JSONFFILE, transforms=transforms_list)
-    # dataset = TextDataset(text_path="train_data/rec_gt_train.txt", transforms=transforms_list)
-    # dataloader = DataLoader(dataset, batch_size=128, collate_fn=collate_fn, shuffle=True, drop_last=False)
     dataloader = DataLoader(dataset, batch_size=config.batch_size, shuffle=True, drop_last=False)
     
     n_steps_per_epoch = math.ceil(len(dataloader.dataset) / config.batch_size)
