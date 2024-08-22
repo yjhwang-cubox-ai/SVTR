@@ -35,6 +35,33 @@ class TNGODataset(Dataset):
         
         return data
 
+class TextDataset(Dataset):
+    def __init__(self, text_path, character_dict_path="dict/vietnam_dict.txt", transforms=None):
+        self.dir_path = os.path.dirname(text_path)        
+        with open(text_path, "r", encoding='utf8') as f:
+            self.data_list = f.readlines()
+        self.transforms = transforms
+        self.encoder = CTCLabelEncode(max_text_length=30, character_dict_path=character_dict_path)
+        self.resizer = SVTRRecResizeImg(image_shape=(3, 64, 256), padding=False)
+        
+    def __len__(self):
+        return len(self.data_list)
+    
+    def __getitem__(self, index):
+        img_path = self.data_list[index].split("\t")[0]
+        
+        img_path_full = os.path.join(self.dir_path, img_path)
+        text = self.data_list[index].split("\t")[1].strip('\n')
+        # print(img_path)
+        img = cv2.imread(img_path_full)
+        
+        data = {'image': img, 'label': text}
+        # print(data)
+        data = self.encoder(data)
+        data = self.resizer(data)
+        
+        return data
+
 
 class SVTRRecResizeImg:
     def __init__(self, image_shape, padding=False):

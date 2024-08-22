@@ -2,61 +2,40 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-def get_para_bias_attr(l2_decay, k):
-    stdv = 1.0 / math.sqrt(k * 1.0)
-    weight_initializer = torch.empty(k)
-    bias_initializer = torch.empty(k)
-    nn.init.uniform_(weight_initializer, -stdv, stdv)
-    nn.init.uniform_(bias_initializer, -stdv, stdv)
     
-    weight_attr = {
-        'weight': nn.Parameter(weight_initializer.clone(), requires_grad=True),
-        'weight_decay': l2_decay
-    }
-    bias_attr = {
-        'bias': nn.Parameter(bias_initializer.clone(), requires_grad=True),
-        'weight_decay': l2_decay
-    }
-    
-    return [weight_attr, bias_attr]
-
 class CTCHead(nn.Module):
-    def __init__(
-        self,
-        in_channels,
-        out_channels,
-        fc_decay=0.0004,
-        mid_channels=None,
-        return_feats=False,
-        **kwargs,
-    ):
+    def __init__(self,
+                 in_channels=192,
+                 out_channels=232,
+                 fc_decay=0.0004,
+                 mid_channels=None,
+                 return_feats=False,
+                 **kwargs):
         super(CTCHead, self).__init__()
         if mid_channels is None:
-            weight_attr, bias_attr = get_para_bias_attr(
-                l2_decay=fc_decay, k=in_channels
-            )
-            self.fc = nn.Linear(in_channels, out_channels)
-            nn.init.uniform_(self.fc.weight, -weight_attr['weight'].std().item(), weight_attr['weight'].std().item())
-            nn.init.uniform_(self.fc.bias, -bias_attr['bias'].std().item(), bias_attr['bias'].std().item())
+            self.fc = nn.Linear(
+                in_channels,
+                out_channels)
         else:
-            weight_attr1, bias_attr1 = get_para_bias_attr(
-                l2_decay=fc_decay, k=in_channels
-            )
-            self.fc1 = nn.Linear(in_channels, mid_channels)
-            nn.init.uniform_(self.fc1.weight, -weight_attr1['weight'].std().item(), weight_attr1['weight'].std().item())
-            nn.init.uniform_(self.fc1.bias, -bias_attr1['bias'].std().item(), bias_attr1['bias'].std().item())
+            self.fc1 = nn.Linear(
+                in_channels,
+                mid_channels)
 
-            weight_attr2, bias_attr2 = get_para_bias_attr(
-                l2_decay=fc_decay, k=mid_channels
-            )
-            self.fc2 = nn.Linear(mid_channels, out_channels)
-            nn.init.uniform_(self.fc2.weight, -weight_attr2['weight'].std().item(), weight_attr2['weight'].std().item())
-            nn.init.uniform_(self.fc2.bias, -bias_attr2['bias'].std().item(), bias_attr2['bias'].std().item())
-
+            self.fc2 = nn.Linear(
+                mid_channels,
+                out_channels)
+        
+        self.in_channels = in_channels
         self.out_channels = out_channels
         self.mid_channels = mid_channels
         self.return_feats = return_feats
+        self.apply(self._init_weights)
+
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            stdv = 1.0 / math.sqrt(self.in_channels * 1.0)
+            nn.init.uniform_(m.weight, -stdv, stdv)
+            nn.init.uniform_(m.bias, -stdv, stdv)
 
     def forward(self, x):
         if self.mid_channels is None:
@@ -64,13 +43,12 @@ class CTCHead(nn.Module):
         else:
             x = self.fc1(x)
             predicts = self.fc2(x)
+        #   batchsize * T * C ---->  T * batchsize * C
+        # predicts = predicts.permute(1, 0, 2)
+        predicts = predicts.log_softmax(2).requires_grad_()
 
         if self.return_feats:
-            result = (x, predicts)
+            result = (predicts, x)
         else:
-            result = predicts
-        if not self.training:
-            predicts = F.softmax(predicts, dim=2)
-            result = predicts
-
+            result = (predicts, None)
         return result

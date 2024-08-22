@@ -398,7 +398,7 @@ class SVTRNet(nn.Module):
         sub_norm="nn.LayerNorm",
         epsilon=1e-6,
         out_channels=192,
-        out_char_num=25,        # 추후 dicttionary size로 변경되도록 수정
+        out_char_num=30,        # 추후 dicttionary size로 변경되도록 수정
         block_unit="Block",
         act="nn.GELU",
         last_stage=True,
