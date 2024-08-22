@@ -6,8 +6,7 @@ from torchvision import transforms
 from stn import STN_ON
 from svtrnet import SVTRNet
 from rnn import SequenceEncoder
-# from ctc_head import CTCHead
-from ctc_fail import CTCHead
+from ctc_head import CTCHead
 from utils import CTCLabelConverter
 # from loss import CTCLoss
 from torch import nn
@@ -97,14 +96,14 @@ def main():
                 loss.backward()
                 
                 optimizer.step()
-                print(f"Epoch {epoch+1}, Loss: {loss}")
+                # print(f"Epoch {epoch+1}, Loss: {loss}")
                 example_ct += len(image)
                 metrics = {"train/train_loss": loss,
                         "train/epoch": (step + 1 + (n_steps_per_epoch * epoch)) / n_steps_per_epoch,
                         "train/example_ct": example_ct}
                 
-                # if step + 1 < n_steps_per_epoch:
-                #     wandb.log(metrics)
+                if step + 1 < n_steps_per_epoch:
+                    wandb.log(metrics)
                 
                 step_ct += 1
     
