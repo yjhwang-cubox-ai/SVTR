@@ -30,11 +30,11 @@ def main():
     resizer = SVTRRecResizeImg(image_shape=(3, 64, 256))
     postprocessor = CTCLabelDecode(character_dict_path="dict/vietnam_dict.txt", use_space_char=False)
     model = SVTR()
-    model.load_state_dict(torch.load("svtr_vn.pth", weights_only=True))    
+    model.load_state_dict(torch.load("svtr_vn_3data.pth", weights_only=True))    
     model.to(DEVICE)
     model.eval()
     with torch.no_grad():
-        img = cv2.imread("testimg/word4.jpg")
+        img = cv2.imread("testimg/48564_FRONT_00000019.jpg")
         data = resizer.resize_norm_img(img, image_shape=(3, 64, 256), padding=False)[0]
         tensor_img = torch.tensor(data).unsqueeze(0).to(DEVICE)
         pred = model(tensor_img)[0]

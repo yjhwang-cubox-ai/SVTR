@@ -19,7 +19,8 @@ import wandb
 wandb.login()
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-JSONFFILE = "/data/CUBOX_VN_Recog_v7/CUBOX_VN_annotation_cleaned.json"
+# JSONFFILE = "/data/CUBOX_VN_Recog_v7/CUBOX_VN_annotation_cleaned.json"
+JSONFFILE = "/data/TNGoDataset/3_TNGo3_Text_final/CUBOX_VN_annotation.json"
 EPOCH = 50
 
 class SVTR(nn.Module):
@@ -42,7 +43,7 @@ def main():
     model = SVTR()
     
     wandb.init(
-        project="svtr",
+        project="svtr-test",
         config={
             "epoch": 50,
             "batch_size": 128,
@@ -51,11 +52,12 @@ def main():
 
     config = wandb.config
 
-    transforms_list = transforms.Compose([
-        # transforms.Resize((64, 256)),
-        transforms.ToTensor(),
-    ])
-    dataset = TNGODataset(json_path=JSONFFILE, transforms=transforms_list)
+    # transforms_list = transforms.Compose([
+    #     # transforms.Resize((64, 256)),
+    #     transforms.ToTensor(),
+    # ])
+    # dataset = TNGODataset(json_path=JSONFFILE, transforms=transforms_list)
+    dataset = TNGODataset(json_path=JSONFFILE)
     dataloader = DataLoader(dataset, batch_size=config.batch_size, shuffle=True, drop_last=False)
     
     n_steps_per_epoch = math.ceil(len(dataloader.dataset) / config.batch_size)
@@ -78,7 +80,7 @@ def main():
                 label_length = label_length.to(DEVICE)
                 optimizer.zero_grad()
                 output = model(image)
-                permuted_output = output.permute(1, 0, 2)
+                permuted_output = output[0].permute(1, 0, 2)
                 N, B, _ = permuted_output.shape
                 output_length = torch.tensor([N]*B, dtype=torch.long)
 
@@ -98,7 +100,7 @@ def main():
                 
                 step_ct += 1
     
-    save_model_path = "svtr_vn.pth"
+    save_model_path = "svtr_vn222.pth"
     torch.save(model.state_dict(), save_model_path)
     
     wandb.finish()

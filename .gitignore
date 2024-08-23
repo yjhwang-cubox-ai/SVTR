@@ -2,3 +2,7 @@
 __pycache__
 train_data
 wandb
+model
+testimg
+ctc_fail.py
+model.ipynb

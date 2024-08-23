@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python 디버거: 현재 파일",
+            "name": "main",
             "type": "debugpy",
             "request": "launch",
             "program": "main.py",
@@ -16,6 +16,20 @@
             "type": "debugpy",
             "request": "launch",
             "program": "dataset.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "test",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "test.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Muti-Train",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "multi_train.py",
             "console": "integratedTerminal"
         }
     ]
