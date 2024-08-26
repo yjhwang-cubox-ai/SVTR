@@ -3,7 +3,6 @@ import torch
 from torch.nn import functional as F
 import re
 
-
 class BaseRecLabelDecode(object):
     """ Convert between text-label and text-index """
 

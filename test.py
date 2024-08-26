@@ -5,7 +5,7 @@ from svtrnet import SVTRNet
 from rnn import SequenceEncoder
 from ctc_head import CTCHead
 from utils import CTCLabelConverter
-from dataset import TNGODataset, SVTRRecResizeImg
+from dataloader.dataset import TNGODataset, SVTRRecResizeImg
 from rec_postprocess import CTCLabelDecode
 import cv2
 import numpy as np

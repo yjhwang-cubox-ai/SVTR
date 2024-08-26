@@ -10,7 +10,7 @@ from ctc_head import CTCHead
 from utils import CTCLabelConverter
 # from loss import CTCLoss
 from torch import nn
-from dataset import TNGODataset, TextDataset
+from dataloader.dataset import TNGODataset, TextDataset
 import tqdm
 from torchvision.transforms import ToPILImage
 import math
@@ -51,14 +51,13 @@ def main():
             })
 
     config = wandb.config
-
-    # transforms_list = transforms.Compose([
-    #     # transforms.Resize((64, 256)),
-    #     transforms.ToTensor(),
-    # ])
-    # dataset = TNGODataset(json_path=JSONFFILE, transforms=transforms_list)
+    
     dataset = TNGODataset(json_path=JSONFFILE)
-    dataloader = DataLoader(dataset, batch_size=config.batch_size, shuffle=True, drop_last=False)
+    dataloader = DataLoader(dataset=dataset, 
+                            batch_size=config.batch_size, 
+                            collate_fn=collate_fn,
+                            shuffle=True, 
+                            drop_last=False)
     
     n_steps_per_epoch = math.ceil(len(dataloader.dataset) / config.batch_size)
     
@@ -104,6 +103,13 @@ def main():
     torch.save(model.state_dict(), save_model_path)
     
     wandb.finish()
+
+def collate_fn(batch):
+    return {
+        'image': torch.stack([torch.tensor(x['image']) for x in batch]),
+        'label': torch.stack([torch.tensor(x['label']) for x in batch]),
+        'length': torch.stack([torch.tensor(x['length'], dtype=torch.int64) for x in batch])
+}
 
 if __name__ == "__main__":
     main()

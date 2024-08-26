@@ -1,19 +1,15 @@
 import torch
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms
 
 from stn import STN_ON
 from svtrnet import SVTRNet
 from rnn import SequenceEncoder
 from ctc_head import CTCHead
-from utils import CTCLabelConverter
 # from loss import CTCLoss
 from torch import nn
-from dataset import TNGODataset, TextDataset
+from dataloader.dataset import TNGODataset, TextDataset
 import tqdm
-from torchvision.transforms import ToPILImage
-import math
 
 import wandb
 wandb.login()
@@ -50,19 +46,27 @@ class CombinedDataset(Dataset):
         raise IndexError("Index out of range")
 
 def main(train_files, val_files):
-    train_datasets = [TNGODataset(file, transforms=transforms.ToTensor()) for file in train_files]
-    val_datasets = [TNGODataset(file, transforms=transforms.ToTensor()) for file in val_files]
+    train_datasets = [TNGODataset(file) for file in train_files]
+    val_datasets = [TNGODataset(file) for file in val_files]
     
     combined_train_dataset = CombinedDataset(*train_datasets)
     combined_val_dataset = CombinedDataset(*val_datasets)
     
-    train_dataloader = DataLoader(combined_train_dataset, batch_size=256, shuffle=True, drop_last=False)
-    val_dataloader = DataLoader(combined_val_dataset, batch_size=128, shuffle=True, drop_last=False)
+    train_dataloader = DataLoader(dataset=combined_train_dataset,
+                                  batch_size=256, 
+                                  collate_fn=collate_fn,
+                                  shuffle=True, 
+                                  drop_last=False)
+    val_dataloader = DataLoader(combined_val_dataset,
+                                batch_size=128,
+                                collate_fn=collate_fn,
+                                shuffle=True, 
+                                drop_last=False)
     
     model = SVTR().to(DEVICE)
     
     wandb.init(
-        project="svtr-multiloader",
+        project="svtr-augmentation",
         config={
             "epoch": 50,
             "batch_size": 256,
@@ -123,10 +127,17 @@ def main(train_files, val_files):
             wandb.log({"val/val_loss": val_loss})
             model.train()
             
-    save_model_path = "svtr_vn_3data.pth"
+    save_model_path = "svtr_vn_new.pth"
     torch.save(model.state_dict(), save_model_path)
     
     wandb.finish()
+
+def collate_fn(batch):
+    return {
+        'image': torch.stack([torch.tensor(x['image']) for x in batch]),
+        'label': torch.stack([torch.tensor(x['label']) for x in batch]),
+        'length': torch.stack([torch.tensor(x['length'], dtype=torch.int64) for x in batch])
+}
 
 if __name__ == "__main__":
     train_files = [
