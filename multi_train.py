@@ -46,8 +46,8 @@ class CombinedDataset(Dataset):
         raise IndexError("Index out of range")
 
 def main(train_files, val_files):
-    train_datasets = [TNGODataset(file) for file in train_files]
-    val_datasets = [TNGODataset(file) for file in val_files]
+    train_datasets = [TNGODataset(file, mode='train') for file in train_files]
+    val_datasets = [TNGODataset(file, mode='test') for file in val_files]
     
     combined_train_dataset = CombinedDataset(*train_datasets)
     combined_val_dataset = CombinedDataset(*val_datasets)
@@ -66,9 +66,9 @@ def main(train_files, val_files):
     model = SVTR().to(DEVICE)
     
     wandb.init(
-        project="svtr-augmentation",
+        project="svtr-0827-fix-error",
         config={
-            "epoch": 50,
+            "epoch": 100,
             "batch_size": 256,
             "lr": 1e-4,
             "val_interval": 1,
@@ -127,7 +127,7 @@ def main(train_files, val_files):
             wandb.log({"val/val_loss": val_loss})
             model.train()
             
-    save_model_path = "svtr_vn_new.pth"
+    save_model_path = "svtr_vn_240828_1.pth"
     torch.save(model.state_dict(), save_model_path)
     
     wandb.finish()

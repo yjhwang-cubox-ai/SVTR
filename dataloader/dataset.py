@@ -3,11 +3,13 @@ from torchvision import transforms
 from PIL import Image
 from torch.utils.data import Dataset, DataLoader
 import json
+import numpy as np
 
 from dataloader.imaug.label_ops import CTCLabelEncode
 import cv2
 import yaml
 import random
+import math
 
 from .imaug import transform, create_operators
 
@@ -18,15 +20,18 @@ def load_config(file_path):
     return config
 
 class TNGODataset(Dataset):
-    def __init__(self, json_path, dataloader_config='dataloader/config.yml', character_dict_path="dict/vietnam_dict.txt"):
+    def __init__(self, json_path, mode, dataloader_config='dataloader/config.yml', character_dict_path="dict/vietnam_dict.txt"):
         self.dir_path = os.path.dirname(json_path)
         with open(json_path, "r", encoding='utf8') as f:
             self.data_list = json.load(f)["data_list"]
-
+        self.mode = mode
         config = load_config(dataloader_config)
         dataset_config = config['dataset']
         global_config = config['global']
-        self.ops = create_operators(dataset_config['transforms'], global_config)
+        if self.mode == 'train':
+            self.ops = create_operators(dataset_config['transforms_train'], global_config)
+        elif self.mode == 'test':
+            self.ops = create_operators(dataset_config['transforms_test'], global_config)
         self.ext_op_transform_idx = dataset_config.get("ext_op_transform_idx", 1)
 
         self.encoder = CTCLabelEncode(max_text_length=30, character_dict_path=character_dict_path)
@@ -93,3 +98,49 @@ class TextDataset(Dataset):
         data = self.resizer(data)
         
         return data
+
+class SVTRRecResizeImg:
+    def __init__(self, image_shape, padding=False):
+        self.image_shape = image_shape
+        self.padding = padding    
+
+    def __call__(self, data):
+        img = data['image']
+
+        norm_img, valid_ratio = self.resize_norm_img(img, self.image_shape,
+                                                self.padding)
+        data['image'] = norm_img
+        data['valid_ratio'] = valid_ratio
+        return data
+    
+    def resize_norm_img(self,
+                    img,
+                    image_shape,
+                    padding=True,
+                    interpolation=cv2.INTER_LINEAR):
+        imgC, imgH, imgW = image_shape
+        h = img.shape[0]
+        w = img.shape[1]
+        if not padding:
+            resized_image = cv2.resize(
+                img, (imgW, imgH), interpolation=interpolation)
+            resized_w = imgW
+        else:
+            ratio = w / float(h)
+            if math.ceil(imgH * ratio) > imgW:
+                resized_w = imgW
+            else:
+                resized_w = int(math.ceil(imgH * ratio))
+            resized_image = cv2.resize(img, (resized_w, imgH))
+        resized_image = resized_image.astype('float32')
+        if image_shape[0] == 1:
+            resized_image = resized_image / 255
+            resized_image = resized_image[np.newaxis, :]
+        else:
+            resized_image = resized_image.transpose((2, 0, 1)) / 255
+        resized_image -= 0.5
+        resized_image /= 0.5
+        padding_im = np.zeros((imgC, imgH, imgW), dtype=np.float32)
+        padding_im[:, :, 0:resized_w] = resized_image
+        valid_ratio = min(1.0, float(resized_w / imgW))
+        return padding_im, valid_ratio
