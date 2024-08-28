@@ -6,3 +6,4 @@ model
 testimg
 ctc_fail.py
 model.ipynb
+*.out
