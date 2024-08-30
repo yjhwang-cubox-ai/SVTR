@@ -26,6 +26,20 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "evaluation",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "evaluation.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "lightning",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "lightning_train.py",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Muti-Train",
             "type": "debugpy",
             "request": "launch",

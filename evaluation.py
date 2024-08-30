@@ -9,24 +9,10 @@ from rec_postprocess import CTCLabelDecode
 import cv2
 import numpy as np
 import json
+from tqdm import tqdm
+
+from metric import OneMinusNEDMetric, WordMetric, CharMetric
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-
-def load_multi_gpu_model(model_path, model):
-    # Multi-GPU로 학습된 모델을 로드
-    state_dict = torch.load(model_path)
-
-    # 'module.' prefix를 제거한 새로운 state_dict 생성
-    from collections import OrderedDict
-    new_state_dict = OrderedDict()
-    for k, v in state_dict.items():
-        if k.startswith('module.'):
-            new_state_dict[k[7:]] = v  # 'module.' prefix를 제거
-        else:
-            new_state_dict[k] = v
-
-    # 모델에 state_dict를 로드
-    model.load_state_dict(new_state_dict)
-    return model
 
 class SVTR(nn.Module):
     def __init__(self):
@@ -58,9 +44,9 @@ def main():
     # model.load_state_dict(torch.load("model/svtr_vn_3data.pth", weights_only=True))
     model.to(DEVICE)
     model.eval()
+    infer_results = []
     with torch.no_grad():
-        for test_data in test_data_list:
-        # img = cv2.imread("testimg/48564_FRONT_00000019.jpg")
+        for test_data in tqdm(test_data_list):
             img_name = '/data/CUBOX_VN_Recog_v7/' + test_data['img_path']
             img = cv2.imread(img_name)
             data = resizer.resize_norm_img(img, image_shape=(3, 64, 256), padding=True)[0]
@@ -70,9 +56,26 @@ def main():
             text = postprocessor(pred.to('cpu'))[0][0]
             conf = np.exp(postprocessor(pred.to('cpu'))[0][1])
 
-            print(f"gt: {gt_text}")
-            print(f"text: {text}")
-            print(f"pred: {conf}")
+            infer_results.append({
+                "img": img_name, 
+                "gt_text": gt_text, 
+                "pred_text": text, 
+                "match": gt_text == text,
+                "conf": conf
+            })
+    
+    one_minus_ned = OneMinusNEDMetric()
+    one_mainus_ned_results = one_minus_ned.compute_metrics(infer_results)
+    
+    word_metric = WordMetric()
+    word_metric_results = word_metric.compute_metrics(infer_results)
+    
+    char_metric = CharMetric()
+    char_metric_results = char_metric.compute_metrics(infer_results)
+    
+    print(one_mainus_ned_results)
+    print(word_metric_results)
+    print(char_metric_results)
 
 if __name__ == "__main__":
     main()
