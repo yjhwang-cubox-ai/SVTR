@@ -1,5 +1,5 @@
 global:
-  max_text_length: 60
+  max_text_length: 30
   character_dict_path: 'dict/vietnam_dict.txt'
 
 dataset:
@@ -9,7 +9,7 @@ dataset:
           prob: 0.5
           ext_data_num: 2
           image_shape: [32, 100, 3]
-          max_text_length: 60
+          max_text_length: 30
     - RecAug:
     - Albumentation:
     - CTCLabelEncode:
