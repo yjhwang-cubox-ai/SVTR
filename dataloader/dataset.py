@@ -13,21 +13,29 @@ import math
 
 from .imaug import transform, create_operators
 
-def load_config(file_path):
-    _, ext = os.path.splitext(file_path)
-    assert ext in ['.yml', '.yaml'], "only support yaml files for now"
-    config = yaml.load(open(file_path, 'rb'), Loader=yaml.Loader)
-    return config
-
 class TNGODataset(Dataset):
     def __init__(self, json_path, mode, dataloader_config='dataloader/config.yml', character_dict_path="dict/vietnam_dict.txt"):
-        self.dir_path = os.path.dirname(json_path)
-        with open(json_path, "r", encoding='utf8') as f:
-            self.data_list = json.load(f)["data_list"]
+        self.data_list = []
+        if isinstance(json_path, str):
+            self.dir_path = os.path.dirname(json_path)
+            with open(json_path, "r", encoding='utf8') as f:
+                data_info = json.load(f)["data_list"]
+            for data in data_info:
+                data['img_path'] = os.path.join(os.path.dirname(path), data['img_path'])
+            self.data_list = data_info
+        elif isinstance(json_path, list):
+            for path in json_path:
+                self.dir_path = os.path.dirname(path)
+                with open(path, "r", encoding='utf8') as f:
+                    data_info = json.load(f)["data_list"]
+                for data in data_info:
+                    data['img_path'] = os.path.join(os.path.dirname(path), data['img_path'])
+                self.data_list.extend(data_info)
+        
         self.mode = mode
-        config = load_config(dataloader_config)
-        dataset_config = config['dataset']
-        global_config = config['global']
+        self.config = self._load_config(dataloader_config)
+        dataset_config = self.config['dataset']
+        global_config = self.config['global']
         if self.mode == 'train':
             self.ops = create_operators(dataset_config['transforms_train'], global_config)
         elif self.mode == 'test':
@@ -36,6 +44,12 @@ class TNGODataset(Dataset):
 
         self.encoder = CTCLabelEncode(max_text_length=30, character_dict_path=character_dict_path)
         # self.resizer = SVTRRecResizeImg(image_shape=(3, 64, 256), padding=False)
+    
+    def _load_config(self, file_path):
+        _, ext = os.path.splitext(file_path)
+        assert ext in ['.yml', '.yaml'], "only support yaml files for now"
+        config = yaml.load(open(file_path, 'rb'), Loader=yaml.Loader)
+        return config
         
     def get_ext_data(self):
         ext_data_num = 0
@@ -57,7 +71,7 @@ class TNGODataset(Dataset):
         return ext_data
 
     def __getitem__(self, index):
-        img_path = os.path.join(self.dir_path, self.data_list[index]["img_path"])
+        img_path = self.data_list[index]["img_path"]
         text = self.data_list[index]["instances"][0]["text"]
         # print(img_path)
         img = cv2.imread(img_path)

@@ -73,18 +73,34 @@ def collate_fn(batch):
         'label': torch.stack([torch.tensor(x['label']) for x in batch]),
         'length': torch.stack([torch.tensor(x['length'], dtype=torch.int64) for x in batch])
 }
+    
+class CombinedDataset(Dataset):
+    def __init__(self, *datasets):
+        self.datasets = datasets
+    
+    def __len__(self):
+        return sum(len(dataset) for dataset in self.datasets)
+
+    def __getitem__(self, idx):
+        for dataset in self.datasets:
+            if idx < len(dataset):
+                return dataset[idx]
+            idx -= len(dataset)
+        raise IndexError("Index out of range")
 
 def main():
-    train_json_file = "/data/TNGoDataset/3_TNGo3_Text_final/CUBOX_VN_annotation.json"
-    test_json_file = "/data/CUBOX_VN_Recog_v7/CUBOX_VN_annotation_cleaned.json"
+    train_json_file = ["/data/TNGoDataset/3_TNGo3_Text_final/CUBOX_VN_annotation.json",
+                       "/data/TNGoDataset/4_TNGo4_Text_final/CUBOX_VN_annotation.json",]
+    test_json_file = ["/data/CUBOX_VN_Recog_v7/CUBOX_VN_annotation_cleaned.json"]
     
-    train_dataset = TNGODataset(json_path=train_json_file, mode='train')
-    train_set_size = int(len(train_dataset) * 0.8)
-    val_set_size = len(train_dataset) - train_set_size
+    train_datasets = TNGODataset(json_path=train_json_file, mode='train')
+    # train_datasets = [TNGODataset(file, mode='train') for file in train_json_file]
+    train_set_size = int(len(train_datasets) * 0.8)
+    val_set_size = len(train_datasets) - train_set_size
 
     #split the train set into two
     seed = torch.Generator().manual_seed(42)
-    train_dataset, val_dataset = random_split(train_dataset, [train_set_size, val_set_size], generator=seed)
+    train_dataset, val_dataset = random_split(train_datasets, [train_set_size, val_set_size], generator=seed)
     val_dataset.dataset.mode = 'test'
     test_dataset = TNGODataset(json_path=test_json_file, mode='test')
     train_dataloader = DataLoader(train_dataset, batch_size=256, collate_fn=collate_fn, shuffle=True, drop_last=False, num_workers=5)
