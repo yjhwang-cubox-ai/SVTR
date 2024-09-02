@@ -5,6 +5,8 @@ wandb
 model
 testimg
 ctc_fail.py
+model.ipynb
+*.out
 *.ipynb
 *.txt
 lightning_logs
