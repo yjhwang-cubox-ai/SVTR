@@ -98,7 +98,7 @@ class STN_ON(nn.Module):
             self,
             in_channels = 3,
             tps_inputsize = [32, 64],
-            tps_outputsize = [32, 100],
+            tps_outputsize = [48, 160],  #Tiny: [32, 100], Large:[48, 160]
             num_control_points = 20,
             tps_margins = [0.05, 0.05],
             stn_activation = "none",

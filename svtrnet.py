@@ -379,12 +379,12 @@ class SubSample(nn.Module):
 class SVTRNet(nn.Module):
     def __init__(
         self,
-        img_size=[32, 100],
+        img_size=[48, 160], #Tiny: [32, 100], Large:[48, 160]
         in_channels=3,
-        embed_dim=[64, 128, 256],
-        depth=[3,6,3],
-        num_heads=[2,4,8],
-        mixer=["Local"] * 6 + ["Global"] * 6, # Local atten, Global atten, Conv
+        embed_dim=[192, 256, 384], #Tiny: [64, 128, 256], Large: [192, 256, 384]
+        depth=[3,9,9], #Tiny: [3, 6, 3], Large: [3, 9, 9]
+        num_heads=[6,8,6], #Tiny: [2, 4, 8], Large: [6, 8, 6]
+        mixer=["Local"] * 10 + ["Global"] * 11, # Local atten, Global atten, Conv #Tiny: ["Local"] * 6 + ["Global"] * 6, Large: ["Local"] * 10 + ["Global"] * 11
         local_mixer=[[7, 11], [7, 11], [7, 11]],
         patch_merging="Conv",  # Conv, Pool, None
         mlp_ratio=4,
@@ -397,8 +397,8 @@ class SVTRNet(nn.Module):
         norm_layer="nn.LayerNorm",
         sub_norm="nn.LayerNorm",
         epsilon=1e-6,
-        out_channels=192,
-        out_char_num=30,        # 추후 dicttionary size로 변경되도록 수정
+        out_channels=384, #Tiny: 192, Large: 384
+        out_char_num=40,        # 추후 dicttionary size로 변경되도록 수정
         block_unit="Block",
         act="nn.GELU",
         last_stage=True,
