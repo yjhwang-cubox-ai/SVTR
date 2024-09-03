@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 import lightning as L
 from lightning.pytorch.loggers import WandbLogger, TensorBoardLogger
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
+from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.callbacks import ModelSummary
 from lightning.pytorch.profilers import SimpleProfiler
 import wandb
@@ -25,7 +26,7 @@ class ImagePredictionLogger(L.Callback):
         self.val_imgs, self.val_labels = val_samples['image'], val_samples['label']
     
     def on_validation_epoch_end(self, trainer, model):
-        postprocessor = CTCLabelDecode(character_dict_path="dict/vietnam_dict.txt", use_space_char=False)
+        postprocessor = CTCLabelDecode(character_dict_path="dict/korean_english_digits_symbols.txt", use_space_char=False)
         val_imgs = self.val_imgs.to(model.device)
         # val_labels = postprocessor(self.val_labels.to('cpu'))
         pred = model(val_imgs)[0]
@@ -47,7 +48,7 @@ class LitSVTR(L.LightningModule):
         self.transform = STN_ON()
         self.backbone = SVTRNet()
         self.neck = SequenceEncoder(in_channels=384, encoder_type="reshape")
-        self.head = CTCHead(in_channels=192, out_channels=228)
+        self.head = CTCHead(in_channels=384, out_channels=1803)
         self.criterion = torch.nn.CTCLoss(zero_infinity=True)        
         self.save_hyperparameters()
 
@@ -109,15 +110,12 @@ def collate_fn(batch):
 }
 
 def main():
-    wandb_logger = WandbLogger(project='pytorchlightning')
+    wandb_logger = WandbLogger(project='svtr-large-korean')
     # wandb_logger.log_image(key='samples', images=['testimg/train1.jpg', 'testimg/train2.jpg'])
     
     
-    train_json_file = ["/purestorage/OCR/TNGoDataSet/1_TNGo_new_Text/annotation.json",
-                       "/purestorage/OCR/TNGoDataSet/3_TNGo3_Text/annotation.json",
-                       "/purestorage/OCR/TNGoDataSet/4_TNGo4_Text/annotation.json",
-                       "/purestorage/OCR/TNGoDataSet/5_Employee_Text/annotation.json",]
-    test_json_file = ["/purestorage/OCR/CUBOX_VN_Recog_v2/CUBOX_VN_annotation.json"]
+    train_json_file = ["/purestorage/OCR/Documents_dataset/RecogDataset_docu/Training/annotation.json"]
+    test_json_file = ["/purestorage/OCR/Documents_dataset/RecogDataset_docu/Validation/annotation.json"]
     
     train_datasets = TNGODataset(json_path=train_json_file, mode='train')
     # train_datasets = [TNGODataset(file, mode='train') for file in train_json_file]
@@ -141,10 +139,11 @@ def main():
     trainer = L.Trainer(accelerator='gpu',
                         devices=8,
                         max_epochs=1000,
+                        check_val_every_n_epoch=5,
                         callbacks=[
-                            # EarlyStopping(monitor='val_loss', mode='min', patience=10),
-                            ImagePredictionLogger(val_samples=next(iter(val_dataloader)), num_samples=10),
-                            # ModelSummary(max_depth=-1)
+                            EarlyStopping(monitor='val_loss', mode='min', patience=10),
+                            ImagePredictionLogger(val_samples=next(iter(val_dataloader)), num_samples=5),
+                            ModelCheckpoint(monitor='val_loss', mode='min', save_top_k=3),
                         ], 
                         profiler=_profiler,
                         logger=wandb_logger,
@@ -155,4 +154,4 @@ def main():
     trainer.test(model=svtr, dataloaders=test_dataloader)
 
 if __name__ == '__main__':
-    main()  
+    main()
