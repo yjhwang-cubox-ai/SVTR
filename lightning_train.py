@@ -46,8 +46,8 @@ class LitSVTR(L.LightningModule):
         super().__init__()
         self.transform = STN_ON()
         self.backbone = SVTRNet()
-        self.neck = SequenceEncoder(in_channels=192, encoder_type="reshape")
-        self.head = CTCHead(in_channels=192, out_channels=228)
+        self.neck = SequenceEncoder(in_channels=384, encoder_type="reshape")
+        self.head = CTCHead(in_channels=384, out_channels=228)
         self.criterion = torch.nn.CTCLoss(zero_infinity=True)        
         self.save_hyperparameters()
 
@@ -109,7 +109,7 @@ def collate_fn(batch):
 }
 
 def main():
-    wandb_logger = WandbLogger(project='pytorchlightning')
+    wandb_logger = WandbLogger(project='pytorchlightning-0903')
     # wandb_logger.log_image(key='samples', images=['testimg/train1.jpg', 'testimg/train2.jpg'])
     
     
@@ -127,9 +127,9 @@ def main():
     train_dataset, val_dataset = random_split(train_datasets, [train_set_size, val_set_size], generator=seed)
     val_dataset.dataset.mode = 'test'
     test_dataset = TNGODataset(json_path=test_json_file, mode='test')
-    train_dataloader = DataLoader(train_dataset, batch_size=256, collate_fn=collate_fn, shuffle=True, drop_last=False, num_workers=5)
-    val_dataloader = DataLoader(val_dataset, batch_size=256, collate_fn=collate_fn, shuffle=False, drop_last=False, num_workers=5)
-    test_dataloader = DataLoader(test_dataset, batch_size=256, collate_fn=collate_fn, shuffle=False, drop_last=False, num_workers=5)
+    train_dataloader = DataLoader(train_dataset, batch_size=64, collate_fn=collate_fn, shuffle=True, drop_last=False, num_workers=5)
+    val_dataloader = DataLoader(val_dataset, batch_size=64, collate_fn=collate_fn, shuffle=False, drop_last=False, num_workers=5)
+    test_dataloader = DataLoader(test_dataset, batch_size=64, collate_fn=collate_fn, shuffle=False, drop_last=False, num_workers=5)
 
     # model
     svtr = LitSVTR()
