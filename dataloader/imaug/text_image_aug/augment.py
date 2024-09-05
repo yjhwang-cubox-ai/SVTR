@@ -97,24 +97,32 @@ def tia_stretch(src, segment=4):
 
 
 def tia_perspective(src):
-    img_h, img_w = src.shape[:2]
+    try:
+        img_h, img_w = src.shape[:2]
 
-    thresh = img_h // 2
+        thresh = img_h // 2
 
-    src_pts = list()
-    dst_pts = list()
+        if thresh <= 0:
+            raise ValueError("thresh 값은 0보다 커야 합니다.")
 
-    src_pts.append([0, 0])
-    src_pts.append([img_w, 0])
-    src_pts.append([img_w, img_h])
-    src_pts.append([0, img_h])
+        src_pts = list()
+        dst_pts = list()
 
-    dst_pts.append([0, np.random.randint(thresh)])
-    dst_pts.append([img_w, np.random.randint(thresh)])
-    dst_pts.append([img_w, img_h - np.random.randint(thresh)])
-    dst_pts.append([0, img_h - np.random.randint(thresh)])
+        src_pts.append([0, 0])
+        src_pts.append([img_w, 0])
+        src_pts.append([img_w, img_h])
+        src_pts.append([0, img_h])
 
-    trans = WarpMLS(src, src_pts, dst_pts, img_w, img_h)
-    dst = trans.generate()
+        dst_pts.append([0, np.random.randint(thresh)])
+        dst_pts.append([img_w, np.random.randint(thresh)])
+        dst_pts.append([img_w, img_h - np.random.randint(thresh)])
+        dst_pts.append([0, img_h - np.random.randint(thresh)])
 
-    return dst
+        trans = WarpMLS(src, src_pts, dst_pts, img_w, img_h)
+        dst = trans.generate()
+
+        return dst
+    except ValueError as e:
+        print(f"ValueError 발생: {e}")
+        
+        return src

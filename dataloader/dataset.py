@@ -71,17 +71,22 @@ class TNGODataset(Dataset):
         return ext_data
 
     def __getitem__(self, index):
-        img_path = self.data_list[index]["img_path"]
-        text = self.data_list[index]["instances"][0]["text"]
-        # print(img_path)
-        img = cv2.imread(img_path)
-        
-        data = {'image': img, 'label': text}
-        data['ext_data'] = self.get_ext_data()
-        outs = transform(data, self.ops)
-        if outs is None:
+        try:
+            img_path = self.data_list[index]["img_path"]
+            text = self.data_list[index]["instances"][0]["text"]
+            # print(img_path)
+            img = cv2.imread(img_path)
+            
+            data = {'image': img, 'label': text}
+            data['ext_data'] = self.get_ext_data()
+            outs = transform(data, self.ops)
+            if outs is None:
+                return self.__getitem__(random.randint(0, self.__len__()))
+            return outs
+
+        except Exception as e:
+            print(f"예외 발생: {e}")            
             return self.__getitem__(random.randint(0, self.__len__()))
-        return outs
     
     def __len__(self):
         return len(self.data_list)
