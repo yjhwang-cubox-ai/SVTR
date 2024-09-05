@@ -1,10 +1,11 @@
 #!/bin/bash
 #SBATCH --job-name=SVTRImpl
-#SBATCH --output=nb-hpe160.out
-#SBATCH --nodelist=hpe160
-#SBATCH --gpus=5
-#SBATCH --ntasks-per-node=5
-#SBATCH --cpus-per-task=16
+#SBATCH --output=nb-hpe161.out
+#SBATCH --nodelist=hpe161
+#SBATCH --gpus=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=12
+#SBATCH --mem-per-cpu=4G
 
 ##### Number of total processes
 echo "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX "
@@ -17,4 +18,4 @@ echo "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX "
 echo "Run started at:- "
 date
 
-srun python -m ligtning_multi
+srun jupyter notebook --ip 0.0.0.0 --port 7777 --no-browser

@@ -11,6 +11,7 @@ from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.callbacks import ModelSummary
 from lightning.pytorch.profilers import SimpleProfiler
 import wandb
+wandb.login(key='53f960c86b81377b89feb5d30c90ddc6c3810d3a')
 
 from stn import STN_ON
 from svtrnet import SVTRNet
@@ -127,9 +128,9 @@ def main():
     train_dataset, val_dataset = random_split(train_datasets, [train_set_size, val_set_size], generator=seed)
     val_dataset.dataset.mode = 'test'
     test_dataset = TNGODataset(json_path=test_json_file, mode='test')
-    train_dataloader = DataLoader(train_dataset, batch_size=256, collate_fn=collate_fn, shuffle=True, drop_last=False, num_workers=5)
-    val_dataloader = DataLoader(val_dataset, batch_size=256, collate_fn=collate_fn, shuffle=True, drop_last=False, num_workers=5)
-    test_dataloader = DataLoader(test_dataset, batch_size=256, collate_fn=collate_fn, shuffle=False, drop_last=False, num_workers=5)
+    train_dataloader = DataLoader(train_dataset, batch_size=128, collate_fn=collate_fn, shuffle=True, drop_last=False, num_workers=5)
+    val_dataloader = DataLoader(val_dataset, batch_size=128, collate_fn=collate_fn, shuffle=True, drop_last=False, num_workers=5)
+    test_dataloader = DataLoader(test_dataset, batch_size=128, collate_fn=collate_fn, shuffle=False, drop_last=False, num_workers=5)
 
     # model
     svtr = LitSVTR()
@@ -137,7 +138,7 @@ def main():
     # trian model
     _profiler = SimpleProfiler(dirpath=".", filename="profile_logs")    
     trainer = L.Trainer(accelerator='gpu',
-                        devices=8,
+                        devices=5,
                         max_epochs=1000,
                         check_val_every_n_epoch=5,
                         callbacks=[

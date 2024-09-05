@@ -1,10 +1,9 @@
 #!/bin/bash
-#SBATCH --job-name=SVTRImpl
+#SBATCH --job-name=Docu1
 #SBATCH --output=nb-hpe160.out
-#SBATCH --nodelist=hpe160
-#SBATCH --gpus=5
-#SBATCH --ntasks-per-node=5
-#SBATCH --cpus-per-task=16
+#SBATCH --partition=80g
+#SBATCH --gres=gpu:5
+#SBATCH --mem-per-gpu=80G
 
 ##### Number of total processes
 echo "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX "
