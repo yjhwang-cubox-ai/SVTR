@@ -1,6 +1,6 @@
 global:
   max_text_length: 30
-  character_dict_path: 'dict/vietnam_dict.txt'
+  character_dict_path: 'dict/korean_english_digits_symbols.txt'
 
 dataset:
   ext_op_transfrom_idx: 1 
@@ -15,9 +15,9 @@ dataset:
     - CTCLabelEncode:
     - SVTRRecResizeImg:
         image_shape: [3, 64, 256]
-        padding: true
+        padding: True
   transforms_test:
     - CTCLabelEncode:
     - SVTRRecResizeImg:
         image_shape: [3, 64, 256]
-        padding: true
+        padding: True

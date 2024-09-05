@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader, random_split
 from torch.utils.data import DataLoader
 import lightning as L
-from lightning.pytorch.loggers import WandbLogger, TensorBoardLogger
+from lightning.pytorch.loggers import WandbLogger
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 from lightning.pytorch.callbacks import ModelSummary
 from lightning.pytorch.profilers import SimpleProfiler
@@ -47,8 +47,8 @@ class LitSVTR(L.LightningModule):
         self.transform = STN_ON()
         self.backbone = SVTRNet()
         self.neck = SequenceEncoder(in_channels=384, encoder_type="reshape")
-        self.head = CTCHead(in_channels=384, out_channels=1803)
-        self.criterion = torch.nn.CTCLoss(zero_infinity=True)
+        self.head = CTCHead(in_channels=384, out_channels=228)
+        self.criterion = torch.nn.CTCLoss(zero_infinity=True)        
         self.save_hyperparameters()
 
     def training_step(self, batch, batch_idx):
@@ -109,9 +109,7 @@ def collate_fn(batch):
 }
 
 def main():
-    wandb_logger = WandbLogger(project='pytorchlightning-0903')
-    # wandb_logger.log_image(key='samples', images=['testimg/train1.jpg', 'testimg/train2.jpg'])
-    
+    wandb_logger = WandbLogger(project='pytorchlightning-transfer-large')    
     
     train_json_file = ["/data/TNGoDataset/3_TNGo3_Text_final/CUBOX_VN_annotation.json",
                        "/data/TNGoDataset/4_TNGo4_Text_final/CUBOX_VN_annotation.json",]
@@ -133,14 +131,14 @@ def main():
 
     # model
     svtr = LitSVTR()
+    svtr.load_state_dict(torch.load('svtr_L_VN7_fine_e12.pth'))
 
     # trian model
-    _profiler = SimpleProfiler(dirpath=".", filename="profile_logs")    
-    trainer = L.Trainer(accelerator='gpu',
-                        max_epochs=1000,
+    _profiler = SimpleProfiler(dirpath=".", filename="profile_logs")
+    trainer = L.Trainer(max_epochs=1000,
                         callbacks=[
                             # EarlyStopping(monitor='val_loss', mode='min', patence=10),
-                            ImagePredictionLogger(val_samples=next(iter(val_dataloader)), num_samples=10),
+                            ImagePredictionLogger(val_samples=next(iter(val_dataloader)), num_samples=5),
                             # ModelSummary(max_depth=-1)
                         ], 
                         profiler=_profiler,
@@ -149,7 +147,6 @@ def main():
     trainer.fit(model=svtr, train_dataloaders=train_dataloader, val_dataloaders=val_dataloader)
     # test model
     trainer.test(model=svtr, dataloaders=test_dataloader)
-
 
 if __name__ == '__main__':
     main()

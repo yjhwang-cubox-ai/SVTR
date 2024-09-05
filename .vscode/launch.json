@@ -45,6 +45,13 @@
             "request": "launch",
             "program": "multi_train.py",
             "console": "integratedTerminal"
+        },
+        {
+            "name": "transfer-learning",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "transfer_learning.py",
+            "console": "integratedTerminal"
         }
     ]
 }
