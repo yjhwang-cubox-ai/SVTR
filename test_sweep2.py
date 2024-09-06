@@ -223,14 +223,14 @@ if __name__ == "__main__":
             "name": "sweep",
             "metric": {"goal": "minimize", "name": "val/val_loss"},
             "parameters":{
-                "lr": {"values": [0, 1e-3, 1e-4]},
+                "lr": {"values": [1e-2, 1e-3, 1e-4, 1e-5]},
                 "batch_size": {"values": [64, 128, 256]},
                 "epochs": {"values": [30],},
                 "optimizer": {"values": ["adam", "adamW"]},
                 "scheduler": {"values": ["step_lr", "cosine_annealing_warmup_restarts"]},
         }
     }
-    sweep_id = wandb.sweep(sweep=sweep_config, project="sweep-test-0905-2")
+    sweep_id = wandb.sweep(sweep=sweep_config, project="sweep-test-0906-1")
 
     train_files = [
         "/data/TNGoDataset/1_TNGo1/annotation.json",        

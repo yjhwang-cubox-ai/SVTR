@@ -38,10 +38,8 @@ class TNGODataset(Dataset):
         global_config = self.config['global']
         if self.mode == 'train':
             self.ops = create_operators(dataset_config['transforms_train'], global_config)
-            self.data_list = self.data_list[:1000]
         elif self.mode == 'test':
             self.ops = create_operators(dataset_config['transforms_test'], global_config)
-            self.data_list = self.data_list[:100]
         self.ext_op_transform_idx = dataset_config.get("ext_op_transform_idx", 1)
 
         self.encoder = CTCLabelEncode(max_text_length=30, character_dict_path=character_dict_path)
