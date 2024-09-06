@@ -11,6 +11,7 @@
 #SBATCH --cpus-per-task=16
 #SBATCH --cpus-per-task=16
 
+export RUN_NAME = "run_$SLURM_JOB_ID"
 
 ##### Number of total processes
 echo "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX "
@@ -32,4 +33,4 @@ srun --container-image /purestorage/project/yjhwang/enroot_images/MAERec5.sqsh \
     bash -c "
     pip install wandb;
     pip install lightning;
-    python test_sweep2-slurm.py"
+    python test_sweep3-slurm.py --run_name $RUN_NAME --sweep_id $1"
