@@ -1,6 +1,4 @@
-#!/bin/sh
-
-for i in $(seq 3)
+for i in $(seq 5)
 do
     sbatch script/train_sweep_selectnode.sh
 done

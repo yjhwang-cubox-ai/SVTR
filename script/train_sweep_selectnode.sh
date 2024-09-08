@@ -3,12 +3,12 @@
 #SBATCH --job-name=DocOCR
 #SBATCH --time=999:00:00
 #SBATCH --output=./logs/sweep_%A_%a.txt
-#SBATCH --nodelist=hpe160
-#SBATCH --nodes=1  
+#SBATCH --nodelist=nv172
+#SBATCH --nodes=1
 #SBATCH --gpus=1
 #SBATCH --ntasks-per-node=1             # 각 노드에서 1개의 작업 실행
-#SBATCH --cpus-per-task=32
-#SBATCH --mem=256gb
+#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=16
 
 ##### Number of total processes
 
@@ -23,5 +23,4 @@ srun --container-image /purestorage/project/yjhwang/enroot_images/MAERec5.sqsh \
     --container-workdir /purestorage/project/yjhwang/SVTR \
     bash -c "
     pip install wandb;
-    pip install lightning;
-    python test_sweep2-slurm.py"
+    python test_sweep3-slurm.py"

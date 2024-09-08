@@ -8,10 +8,6 @@
 #SBATCH --gres=gpu:1
 #SBATCH --mem-per-gpu=80G               # 입력 안해주면 실행안됨(?)
 #SBATCH --ntasks-per-node=1             # 각 노드에서 1개의 작업 실행
-#SBATCH --cpus-per-task=16
-#SBATCH --cpus-per-task=16
-
-export RUN_NAME = "run_$SLURM_JOB_ID"
 
 ##### Number of total processes
 echo "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX "
@@ -25,12 +21,10 @@ echo "Run started at:- "
 date
 
 # run script from above
-srun --container-image /purestorage/project/yjhwang/enroot_images/MAERec5.sqsh \
+srun --container-image /purestorage/project/yjhwang/enroot_images/mmocr.sqsh \
     --container-mounts /purestorage:/purestorage \
     --no-container-mount-home \
     --container-writable \
     --container-workdir /purestorage/project/yjhwang/SVTR \
     bash -c "
-    pip install wandb;
-    pip install lightning;
-    python test_sweep3-slurm.py --run_name $RUN_NAME --sweep_id $1"
+    python test_sweep3-slurm.py"

@@ -12,13 +12,11 @@ from dataloader.dataset import TNGODataset, TextDataset, SVTRRecResizeImg
 import tqdm
 import numpy as np
 import cv2
-import argsparse   
 
 import math
 from torch.optim.lr_scheduler import _LRScheduler
 
 import wandb
-wandb.login(key="53f960c86b81377b89feb5d30c90ddc6c3810d3a")
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 class SVTR(nn.Module):
@@ -51,75 +49,48 @@ class CombinedDataset(Dataset):
         raise IndexError("Index out of range")
 
 def main():
-    wandb.init(config=wandb.config)
+    wandb.login(key="53f960c86b81377b89feb5d30c90ddc6c3810d3a")    
 
-    train_datasets = TNGODataset(train_files, mode='train')
-    val_datasets = TNGODataset(val_files, mode='test')
+    def train():
+        wandb.init(name='svtr')
     
-    train_dataloader = DataLoader(dataset=train_datasets,
-                                  batch_size=wandb.config.batch_size, 
-                                  collate_fn=collate_fn,
-                                  shuffle=True, 
-                                  drop_last=False)
-    val_dataloader = DataLoader(val_datasets,
-                                batch_size=wandb.config.batch_size,
-                                collate_fn=collate_fn,
-                                shuffle=True, 
-                                drop_last=False)
-    
-    model = SVTR().to(DEVICE)
 
-    # select optimizer
-    if wandb.config.optimizer == "adam":
-        optimizer = torch.optim.Adam(model.parameters(), lr=wandb.config.lr)
-    elif wandb.config.optimizer == "adamW":
-        optimizer = torch.optim.AdamW(model.parameters(), lr=wandb.config.lr, weight_decay=0.01)    
-    # select scheduler
-    if wandb.config.scheduler == "step_lr":
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.1)
-    elif wandb.config.scheduler == "cosine_annealing_warmup_restarts":
-        scheduler = CosineAnnealingWarmUpRestarts(optimizer, T_0=50, T_mult=2, eta_max=0.1,  T_up=10, gamma=0.5)
+        train_datasets = TNGODataset(train_files, mode='train')
+        val_datasets = TNGODataset(val_files, mode='test')
+        
+        train_dataloader = DataLoader(dataset=train_datasets,
+                                    batch_size=wandb.config.batch_size, 
+                                    collate_fn=collate_fn,
+                                    shuffle=True, 
+                                    drop_last=False)
+        val_dataloader = DataLoader(val_datasets,
+                                    batch_size=wandb.config.batch_size,
+                                    collate_fn=collate_fn,
+                                    shuffle=True, 
+                                    drop_last=False)
+        
+        model = SVTR().to(DEVICE)
 
-    criterion = nn.CTCLoss()
-    
-    model.train()
-    
-    for epoch in range(wandb.config.epochs):
-        with tqdm.tqdm(train_dataloader, unit="it") as pbar:
-            pbar.set_description(f"Epoch {epoch+1}")
-            e_losses = []
-            for step, batch in enumerate(pbar):
-                images = batch['image'].to(DEVICE)
-                labels = batch['label'].to(DEVICE)
-                lengths = batch['length'].to(DEVICE)
-                
-                output = model(images)
-                permuted_output = output[0].permute(1, 0, 2)
-                N, B, _ = permuted_output.shape
-                output_length = torch.tensor([N]*B, dtype=torch.long).to(DEVICE)
-                
-                loss = criterion(permuted_output, labels, output_length, lengths)
-                
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()                
-                e_losses.append(loss.item())
-            e_loss = np.mean(e_losses)
-            scheduler.step()
+        # select optimizer
+        if wandb.config.optimizer == "adam":
+            optimizer = torch.optim.Adam(model.parameters(), lr=wandb.config.lr)
+        elif wandb.config.optimizer == "adamW":
+            optimizer = torch.optim.AdamW(model.parameters(), lr=wandb.config.lr, weight_decay=0.01)    
+        # select scheduler
+        if wandb.config.scheduler == "step_lr":
+            scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.1)
+        elif wandb.config.scheduler == "cosine_annealing_warmup_restarts":
+            scheduler = CosineAnnealingWarmUpRestarts(optimizer, T_0=50, T_mult=2, eta_max=0.1,  T_up=10, gamma=0.5)
 
-            wandb.log(
-                {
-                    "epoch": epoch,
-                    "train/train_loss": e_loss
-                }
-            )
-                
-        # Validation loop
-        if (epoch + 1) % 1 == 0:
-            model.eval()
-            val_loss = 0
-            with torch.no_grad():
-                for batch in tqdm.tqdm(val_dataloader):
+        criterion = nn.CTCLoss()
+        
+        model.train()
+        
+        for epoch in range(wandb.config.epochs):
+            with tqdm.tqdm(train_dataloader, unit="it") as pbar:
+                pbar.set_description(f"Epoch {epoch+1}")
+                e_losses = []
+                for step, batch in enumerate(pbar):
                     images = batch['image'].to(DEVICE)
                     labels = batch['label'].to(DEVICE)
                     lengths = batch['length'].to(DEVICE)
@@ -128,33 +99,64 @@ def main():
                     permuted_output = output[0].permute(1, 0, 2)
                     N, B, _ = permuted_output.shape
                     output_length = torch.tensor([N]*B, dtype=torch.long).to(DEVICE)
-
+                    
                     loss = criterion(permuted_output, labels, output_length, lengths)
-                    val_loss += loss.item()
+                    
+                    optimizer.zero_grad()
+                    loss.backward()
+                    optimizer.step()                
+                    e_losses.append(loss.item())
+                e_loss = np.mean(e_losses)
+                scheduler.step()
 
-                    # wandb image logging
-                    img_names = ['testimg/word.jpg', 'testimg/word2.jpg', 'testimg/word3.jpg', 'testimg/word3.jpg']
-                    resizer = SVTRRecResizeImg(image_shape=(3, 64, 256))
-                    postprocessor = CTCLabelDecode(character_dict_path="dict/vietnam_dict.txt", use_space_char=False)
-                    example_images = []
-                    for img_name in img_names:
-                        img = cv2.imread(img_name)
-                        resize_img = resizer.resize_norm_img(img, image_shape=(3, 64, 256), padding=True)[0]
-                        tensor_img = torch.tensor(resize_img).unsqueeze(0).to(DEVICE)
-                        pred = model(tensor_img)[0]
-                        text = postprocessor(pred.to('cpu'))[0][0]
-                        conf = np.exp(postprocessor(pred.to('cpu'))[0][1])
-                        example_images.append(wandb.Image(img, caption=f"Pred: {text}, Conf: {conf}"))
-                    wandb.log({"examples": example_images})
+                wandb.log(
+                    {
+                        "epoch": epoch,
+                        "train/train_loss": e_loss
+                    }
+                )
+                    
+            # Validation loop
+            if (epoch + 1) % 1 == 0:
+                model.eval()
+                val_loss = 0
+                with torch.no_grad():
+                    for batch in tqdm.tqdm(val_dataloader):
+                        images = batch['image'].to(DEVICE)
+                        labels = batch['label'].to(DEVICE)
+                        lengths = batch['length'].to(DEVICE)
+                        
+                        output = model(images)
+                        permuted_output = output[0].permute(1, 0, 2)
+                        N, B, _ = permuted_output.shape
+                        output_length = torch.tensor([N]*B, dtype=torch.long).to(DEVICE)
 
-            val_loss /= len(val_dataloader)
-            wandb.log({"val/val_loss": val_loss})
-            model.train()
-            
-    save_model_path = "svtr_vn_240828_1.pth"
-    torch.save(model.state_dict(), save_model_path)
+                        loss = criterion(permuted_output, labels, output_length, lengths)
+                        val_loss += loss.item()
+
+                        # wandb image logging
+                        img_names = ['testimg/word.jpg', 'testimg/word2.jpg', 'testimg/word3.jpg', 'testimg/word3.jpg']
+                        resizer = SVTRRecResizeImg(image_shape=(3, 64, 256))
+                        postprocessor = CTCLabelDecode(character_dict_path="dict/vietnam_dict.txt", use_space_char=False)
+                        example_images = []
+                        for img_name in img_names:
+                            img = cv2.imread(img_name)
+                            resize_img = resizer.resize_norm_img(img, image_shape=(3, 64, 256), padding=True)[0]
+                            tensor_img = torch.tensor(resize_img).unsqueeze(0).to(DEVICE)
+                            pred = model(tensor_img)[0]
+                            text = postprocessor(pred.to('cpu'))[0][0]
+                            conf = np.exp(postprocessor(pred.to('cpu'))[0][1])
+                            example_images.append(wandb.Image(img, caption=f"Pred: {text}, Conf: {conf}"))
+                        wandb.log({"examples": example_images})
+
+                val_loss /= len(val_dataloader)
+                wandb.log({"val/val_loss": val_loss})
+                model.train()
+                
+        save_model_path = "svtr_vn_240828_1.pth"
+        torch.save(model.state_dict(), save_model_path)
     
-    wandb.finish()
+    wandb.agent('9rage1o7', function=main, count=5)
 
 def collate_fn(batch):
     return {
@@ -219,10 +221,6 @@ class CosineAnnealingWarmUpRestarts(_LRScheduler):
             param_group['lr'] = lr
 
 if __name__ == "__main__":
-    parser = argsparse.ArgumentParser()
-    parser.add_argument("--sweep_id", required=True)
-    parser.add_argument("--name", default="svtr_vn") 
-    args = parser.parse_args()
 
     train_files = [
         "/purestorage/OCR/TNGoDataSet/1_TNGo_new_Text/annotation.json",        
@@ -234,5 +232,4 @@ if __name__ == "__main__":
         "/purestorage/OCR/CUBOX_VN_Recog_v2/CUBOX_VN_annotation.json",
     ]
 
-    wandb.login()
-    wandb.agent(args.sweep_id, function=main, count=5)
+    main()   

@@ -245,3 +245,4 @@ if __name__ == "__main__":
     ]
 
     wandb.agent(sweep_id, function=main, count=1)
+    # wandb agent youngjun-hwang/sweep_svtr_0906/9rage1o7
