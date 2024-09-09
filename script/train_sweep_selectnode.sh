@@ -16,11 +16,11 @@ echo "Run started at:- "
 date
 
 # run script from above
-srun --container-image /purestorage/project/yjhwang/enroot_images/MAERec5.sqsh \
+srun --container-image /purestorage/project/yjhwang/enroot_images/mmocr.sqsh \
     --container-mounts /purestorage:/purestorage \
     --no-container-mount-home \
     --container-writable \
     --container-workdir /purestorage/project/yjhwang/SVTR \
     bash -c "
-    pip install wandb;
-    python test_sweep3-slurm.py"
+    pip install argparse;
+    python test_sweep3-slurm.py --sweep_id=$1"

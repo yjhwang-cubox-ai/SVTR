@@ -1,6 +1,6 @@
 global:
   max_text_length: 30
-  character_dict_path: 'dict/korean_english_digits_symbols.txt'
+  character_dict_path: 'dict/vietnam_dict.txt'
 
 dataset:
   ext_op_transfrom_idx: 1 

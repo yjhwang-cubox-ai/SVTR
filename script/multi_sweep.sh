@@ -1,4 +1,4 @@
-for i in $(seq 8)
+for i in $(seq 4)
 do
-    sbatch script/train_sweep.sh 9qkqba2n
+    sbatch script/train_sweep.sh gckhefko
 done
