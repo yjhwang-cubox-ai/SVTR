@@ -27,4 +27,5 @@ srun --container-image /purestorage/project/yjhwang/enroot_images/mmocr.sqsh \
     --container-writable \
     --container-workdir /purestorage/project/yjhwang/SVTR \
     bash -c "
-    python test_sweep3-slurm.py"
+    pip install argparse;
+    python test_sweep3-slurm.py --sweep_id=$1"

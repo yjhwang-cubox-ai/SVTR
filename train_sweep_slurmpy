@@ -16,6 +16,7 @@ import cv2
 import math
 from torch.optim.lr_scheduler import _LRScheduler
 
+import argparse
 import wandb
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -48,11 +49,12 @@ class CombinedDataset(Dataset):
             idx -= len(dataset)
         raise IndexError("Index out of range")
 
-def main():
+def main(sweep_id):
     wandb.login(key="53f960c86b81377b89feb5d30c90ddc6c3810d3a")    
+    print("finish login")
 
     def train():
-        wandb.init(name='svtr')
+        wandb.init()
     
 
         train_datasets = TNGODataset(train_files, mode='train')
@@ -73,9 +75,9 @@ def main():
 
         # select optimizer
         if wandb.config.optimizer == "adam":
-            optimizer = torch.optim.Adam(model.parameters(), lr=wandb.config.lr)
+            optimizer = torch.optim.Adam(model.parameters(), lr=wandb.config.learning_rate)
         elif wandb.config.optimizer == "adamW":
-            optimizer = torch.optim.AdamW(model.parameters(), lr=wandb.config.lr, weight_decay=0.01)    
+            optimizer = torch.optim.AdamW(model.parameters(), lr=wandb.config.learning_rate, weight_decay=0.01)    
         # select scheduler
         if wandb.config.scheduler == "step_lr":
             scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.1)
@@ -135,28 +137,29 @@ def main():
                         val_loss += loss.item()
 
                         # wandb image logging
-                        img_names = ['testimg/word.jpg', 'testimg/word2.jpg', 'testimg/word3.jpg', 'testimg/word3.jpg']
-                        resizer = SVTRRecResizeImg(image_shape=(3, 64, 256))
-                        postprocessor = CTCLabelDecode(character_dict_path="dict/vietnam_dict.txt", use_space_char=False)
-                        example_images = []
-                        for img_name in img_names:
-                            img = cv2.imread(img_name)
-                            resize_img = resizer.resize_norm_img(img, image_shape=(3, 64, 256), padding=True)[0]
-                            tensor_img = torch.tensor(resize_img).unsqueeze(0).to(DEVICE)
-                            pred = model(tensor_img)[0]
-                            text = postprocessor(pred.to('cpu'))[0][0]
-                            conf = np.exp(postprocessor(pred.to('cpu'))[0][1])
-                            example_images.append(wandb.Image(img, caption=f"Pred: {text}, Conf: {conf}"))
-                        wandb.log({"examples": example_images})
+                        # img_names = ['testimg/word.jpg', 'testimg/word2.jpg', 'testimg/word3.jpg', 'testimg/word3.jpg']
+                        # resizer = SVTRRecResizeImg(image_shape=(3, 64, 256))
+                        # postprocessor = CTCLabelDecode(character_dict_path="dict/vietnam_dict.txt", use_space_char=False)
+                        # example_images = []
+                        # for img_name in img_names:
+                        #     img = cv2.imread(img_name)
+                        #     resize_img = resizer.resize_norm_img(img, image_shape=(3, 64, 256), padding=True)[0]
+                        #     tensor_img = torch.tensor(resize_img).unsqueeze(0).to(DEVICE)
+                        #     pred = model(tensor_img)[0]
+                        #     text = postprocessor(pred.to('cpu'))[0][0]
+                        #     conf = np.exp(postprocessor(pred.to('cpu'))[0][1])
+                        #     example_images.append(wandb.Image(img, caption=f"Pred: {text}, Conf: {conf}"))
+                        # wandb.log({"examples": example_images})
 
                 val_loss /= len(val_dataloader)
                 wandb.log({"val/val_loss": val_loss})
                 model.train()
                 
-        save_model_path = "svtr_vn_240828_1.pth"
+        save_model_path = f"svtr_vn_240909_{sweep_id}.pth"
         torch.save(model.state_dict(), save_model_path)
     
-    wandb.agent('9rage1o7', function=main, count=5)
+    print(f"agent 전 sweep_id: {sweep_id}")
+    wandb.agent(sweep_id, function=train, count=5, entity = "youngjun-hwang", project="slurm-test")
 
 def collate_fn(batch):
     return {
@@ -232,4 +235,9 @@ if __name__ == "__main__":
         "/purestorage/OCR/CUBOX_VN_Recog_v2/CUBOX_VN_annotation.json",
     ]
 
-    main()   
+    parser = argparse.ArgumentParser(description="Process sweep_id.")
+    parser.add_argument("--sweep_id", type=str, default="The sweep ID to process")
+
+    args = parser.parse_args()
+
+    main(args.sweep_id)
